@@ -970,6 +970,28 @@ function computeVals() {
     }).filter(Boolean).sort((a, b) => (parseEuro(b.valore) || 0) - (parseEuro(a.valore) || 0));
   }
 
+  // ogni riga = una singola vendita registrata (un prodotto può comparire più volte se venduto in più tranche)
+  const venditeGlobali = [];
+  prodotti.forEach(p => {
+    venditeDi(p).forEach(w => {
+      const spesa = w.costoU ? r2(w.costoU * (w.qty || 0)) : null;
+      const profitto = spesa !== null ? r2((w.prezzo || 0) - spesa) : null;
+      const profittoPct = profitto !== null && spesa ? profitto / spesa * 100 : null;
+      venditeGlobali.push({
+        nome: p.nome, qty: w.qty || 0, foto: p.foto || '', fotoStyle: fotoStyle(p.foto), senzaFoto: !p.foto, iniziali: iniz(p.nome),
+        dataAcqTesto: p.dataAcq ? dmy(p.dataAcq) : '—',
+        spesaTesto: spesa !== null ? eur(spesa) : 'n.d.',
+        dataVendTesto: w.data ? dmy(w.data) : '—',
+        ricavoTesto: eur(w.prezzo || 0),
+        profittoTesto: profitto !== null ? eurC(profitto) : 'n.d.',
+        profittoPctTesto: profittoPct !== null ? pct(profittoPct) : '—',
+        dStyle: pill(profitto || 0),
+        _data: w.data || ''
+      });
+    });
+  });
+  venditeGlobali.sort((a, b) => b._data.localeCompare(a._data));
+
   return {
     isColl: s.tab === 'collezione', isIns: s.tab === 'inserimento', isAn: s.tab === 'analytics',
     tabColl: tabS(s.tab === 'collezione'), tabIns: tabS(s.tab === 'inserimento'), tabAn: tabS(s.tab === 'analytics'),
@@ -1276,6 +1298,7 @@ function computeVals() {
     setSettH: H(() => setState({ periodo: 'Settimanale', tip: null })), setMensH: H(() => setState({ periodo: 'Mensile', tip: null })), setAnnH: H(() => setState({ periodo: 'Annuale', tip: null })),
     periodo, chartPortfolio, chartDivario, chartConfronto, composizione, classifica, highlights,
     tortaCapitale, tortaPezzi, recapCat,
+    venditeGlobali, haVenditeGlobali: venditeGlobali.length > 0,
     recap: [
       { titolo: 'Valore totale', valore: eur(totV), nota: prodotti.length + (prodotti.length === 1 ? ' prodotto' : ' prodotti') + ' · ' + prodotti.reduce((a, p) => a + (p.qty || 0), 0) + ' pezzi', pill: null },
       { titolo: 'Spesa complessiva', valore: spesa ? eur(spesa) : '—', nota: spesa ? nConCosto + (nConCosto === 1 ? ' prodotto con spesa' : ' prodotti con spesa') : 'nessuna spesa registrata', pill: null },
@@ -1616,6 +1639,36 @@ function renderAnalytics(V) {
           </table>
         </div>
       </div>
+
+      ${V.haVenditeGlobali ? `
+      <div class="pk-card" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:19px;font-weight:800;letter-spacing:-0.02em">Prodotti venduti</div>
+        <div style="overflow-x:auto">
+          <table class="pk-t">
+            <thead><tr><th>Prodotto</th><th style="text-align:right">Data acquisto</th><th style="text-align:right">Spesa</th><th style="text-align:right">Data vendita</th><th style="text-align:right">Ricavo</th><th style="text-align:right">Profitto €</th><th style="text-align:right">Profitto %</th></tr></thead>
+            <tbody>
+              ${V.venditeGlobali.map(w => `
+              <tr>
+                <td>
+                  <div style="display:flex;align-items:center;gap:9px;min-width:170px">
+                    <div style="width:32px;height:32px;flex:none;border-radius:9px;background:#fff;overflow:hidden;display:grid;place-items:center;font-size:11px;font-weight:800;color:#c9cfd9">
+                      ${w.foto ? `<div role="img" aria-label="${esc(w.nome)}" style="${styleAttr(w.fotoStyle)}"></div>` : `<span>${esc(w.iniziali)}</span>`}
+                    </div>
+                    <span style="font-weight:700">${esc(w.nome)}</span>
+                    <span style="font-size:10px;font-weight:700;background:#e9ecf1;color:#5d6672;border-radius:999px;padding:2px 7px;flex:none">×${w.qty}</span>
+                  </div>
+                </td>
+                <td class="num" style="text-align:right;color:#5d6672">${esc(w.dataAcqTesto)}</td>
+                <td class="num" style="text-align:right">${esc(w.spesaTesto)}</td>
+                <td class="num" style="text-align:right;color:#5d6672">${esc(w.dataVendTesto)}</td>
+                <td class="num" style="text-align:right;font-weight:700">${esc(w.ricavoTesto)}</td>
+                <td class="num" style="${styleAttr(w.dStyle)}">${esc(w.profittoTesto)}</td>
+                <td class="num" style="${styleAttr(w.dStyle)}">${esc(w.profittoPctTesto)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
 
       ${V.datiInsufficienti ? `
       <div class="pk-card" style="padding:28px;text-align:center;display:flex;flex-direction:column;gap:6px">

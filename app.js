@@ -1459,7 +1459,7 @@ function renderInserimento(V) {
         </div>
         <div>
           <label class="pk-lb">Quantità posseduta</label>
-          <input class="pk-in num" type="number" min="1" step="1" data-field="f.qty" value="${esc(V.f.qty)}" data-hi="${V.onFQtyH}">
+          <input class="pk-in num" type="text" inputmode="numeric" data-field="f.qty" value="${esc(V.f.qty)}" data-hi="${V.onFQtyH}">
         </div>
         <div style="position:relative" data-drop="1">
           <label class="pk-lb">Lingua</label>
@@ -1750,7 +1750,7 @@ function renderDettaglio(V) {
             <label class="pk-lb">Quantità venduta</label>
             <div style="display:flex;gap:8px;align-items:center">
               <button type="button" class="pk-btn" style="padding:9px 14px;font-size:16px;background:#fff" data-h="${vf.menoH}">−</button>
-              <input class="pk-in num" style="text-align:center" type="number" min="1" data-field="vendi.qty" value="${esc(vf.qty)}" data-hi="${vf.onQtyH}">
+              <input class="pk-in num" style="text-align:center" type="text" inputmode="numeric" data-field="vendi.qty" value="${esc(vf.qty)}" data-hi="${vf.onQtyH}">
               <button type="button" class="pk-btn" style="padding:9px 14px;font-size:16px;background:#fff" data-h="${vf.piuH}">+</button>
             </div>
             <div class="num" style="font-size:12px;font-weight:600;color:#5d6672;margin-top:6px">${esc(vf.maxTesto)}</div>
@@ -1946,7 +1946,11 @@ function render() {
   const active = document.activeElement;
   let focusInfo = null;
   if (active && appEl.contains(active) && active.hasAttribute && active.hasAttribute('data-field')) {
-    focusInfo = { field: active.getAttribute('data-field'), start: active.selectionStart, end: active.selectionEnd };
+    // selectionStart/End throw (or are unsupported) on some input types (number, email, ...) —
+    // fields that need free-form typing use type="text" + inputmode instead, but guard anyway.
+    let start = null, end = null;
+    try { start = active.selectionStart; end = active.selectionEnd; } catch (e) {}
+    focusInfo = { field: active.getAttribute('data-field'), start, end };
   }
   appEl.innerHTML = full;
   if (focusInfo) {

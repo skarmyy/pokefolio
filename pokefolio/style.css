@@ -1,0 +1,28 @@
+html, body { background: #eceef2; margin: 0; }
+body { font-family: 'Poppins', system-ui, sans-serif; color: #16181c; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+.num { font-variant-numeric: tabular-nums; }
+input, select, textarea, button { font-family: inherit; }
+
+.pk-in { width: 100%; box-sizing: border-box; border: 1px solid #e2e5ea; background: #fff; border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 500; color: #16181c; outline: none; }
+.pk-in:focus-visible { border-color: #ef4444; outline: 2px solid rgba(239,68,68,0.25); outline-offset: 1px; }
+.pk-lb { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6672; margin-bottom: 6px; }
+.pk-btn { border: 0; cursor: pointer; border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 700; background: #fff; color: #40474f; box-shadow: 0 1px 2px rgba(20,24,32,0.06); }
+.pk-btn:hover { background: #f6f7f9; color: #16181c; }
+.pk-btn:active { transform: translateY(1px); }
+.pk-btn:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+.pk-red { background: #ef4444; color: #fff; }
+.pk-red:hover { background: #dc2626; color: #fff; }
+.pk-card { background: #f4f5f8; border-radius: 20px; box-shadow: 0 1px 2px rgba(20,24,32,0.05); }
+a { color: #ef4444; text-decoration: none; font-weight: 600; }
+a:hover { color: #dc2626; text-decoration: underline; }
+table.pk-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.pk-t th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6672; padding: 0 10px 8px; }
+table.pk-t td { padding: 10px; border-top: 1px solid #e6e9ee; font-weight: 500; }
+
+/* dropdown / calendar option hover (data-driven, since inline style-hover isn't native CSS) */
+.pk-opt:hover { background: #f4f5f8; }
+.pk-daybtn:hover { background: #f4f5f8; }
+.pk-legend:hover { background: #f4f5f8; }
+
+.pk-hidden-file { display: none; }

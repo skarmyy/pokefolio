@@ -1662,8 +1662,8 @@ function renderAnalytics(V) {
                 <td class="num" style="text-align:right">${esc(w.spesaTesto)}</td>
                 <td class="num" style="text-align:right;color:#5d6672">${esc(w.dataVendTesto)}</td>
                 <td class="num" style="text-align:right;font-weight:700">${esc(w.ricavoTesto)}</td>
-                <td class="num" style="${styleAttr(w.dStyle)}">${esc(w.profittoTesto)}</td>
-                <td class="num" style="${styleAttr(w.dStyle)}">${esc(w.profittoPctTesto)}</td>
+                <td style="text-align:right"><span class="num" style="${styleAttr(w.dStyle)}">${esc(w.profittoTesto)}</span></td>
+                <td style="text-align:right"><span class="num" style="${styleAttr(w.dStyle)}">${esc(w.profittoPctTesto)}</span></td>
               </tr>`).join('')}
             </tbody>
           </table>

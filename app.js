@@ -445,8 +445,8 @@ function chart(id, labels, serie, opts) {
   const tip = state.tip;
   labels.forEach((l, i) => {
     const w = (W - padL - padR) / Math.max(1, (n - 1));
-    const enterH = H(() => setState({ tip: { id, i } }));
-    const leaveH = H(() => setState({ tip: null }));
+    const enterH = H(() => { if (state.tip && state.tip.id === id && state.tip.i === i) return; setState({ tip: { id, i } }); });
+    const leaveH = H(() => { if (!state.tip) return; setState({ tip: null }); });
     svgKids += `<rect x="${x(i) - w / 2}" y="0" width="${w}" height="${H_}" fill="transparent" data-henter="${enterH}" data-hleave="${leaveH}" data-htouch="${enterH}"></rect>`;
   });
   if (tip && tip.id === id && tip.i < n) {
@@ -508,7 +508,7 @@ function donut(id, items, totLabel, totValore, fmt) {
   const sel = (state.tortaSel || {})[id] || null;
   const hov = (state.tortaHov || {})[id] || null;
   const attiva = hov || sel;
-  const setHov = (label) => setState(st => { const m = Object.assign({}, st.tortaHov || {}); if (label === null) delete m[id]; else m[id] = label; return { tortaHov: m }; });
+  const setHov = (label) => { if (((state.tortaHov || {})[id] || null) === label) return; setState(st => { const m = Object.assign({}, st.tortaHov || {}); if (label === null) delete m[id]; else m[id] = label; return { tortaHov: m }; }); };
   const setSel = (label) => setState(st => { const cur = (st.tortaSel || {})[id] || null; const m = Object.assign({}, st.tortaSel || {}); const val = cur === label ? null : label; if (val === null) delete m[id]; else m[id] = val; return { tortaSel: m }; });
   const R = 82, r = 52, C = 100;
   let ang = -Math.PI / 2;
@@ -616,6 +616,27 @@ function confermaEdit() {
     }))
   };
   setD(d); setState({ edit: null });
+}
+
+// deletes one sale record from a product's history, restoring the sold pieces (and the
+// proportional share of the purchase cost, when known) back into the collection
+function eliminaVendita(pid, vid) {
+  const p = state.d.prodotti.find(x => x.id === pid);
+  if (!p) { setState({ chiedi: null }); return; }
+  let np;
+  if (vid === 'old' && !(p.vendite && p.vendite.length)) {
+    // legacy "Stato: venduto" record with no vendite[] entry to remove — just clear the flags
+    np = Object.assign({}, p, { venduto: false, prezzoVend: null, dataVend: '' });
+  } else {
+    const sale = (p.vendite || []).find(w => w.id === vid);
+    const restanti = (p.vendite || []).filter(w => w.id !== vid);
+    const addQty = sale ? (sale.qty || 0) : 0;
+    const newQty = (p.qty || 0) + addQty;
+    const newCosto = sale && sale.costoU ? r2(sale.costoU * newQty) : p.costo;
+    np = Object.assign({}, p, { qty: newQty, costo: newCosto, vendite: restanti, venduto: false });
+  }
+  setD({ prodotti: state.d.prodotti.map(x => x.id === pid ? np : x), ril: state.d.ril.slice() });
+  setState({ chiedi: null });
 }
 
 function esporta() {
@@ -846,17 +867,21 @@ function computeVals() {
           })
         };
       })() : null,
-      venditeRighe: (st0 ? st0.vend : []).map(w => ({
-        testo: w.qty + (w.qty === 1 ? ' pezzo' : ' pezzi') + (w.data ? ' il ' + dmy(w.data) : '') + ' · ' + eur(w.prezzo || 0),
-        profitto: w.costoU ? eurC((w.prezzo || 0) - w.costoU * w.qty) : 'profitto n.d.',
-        style: pill(w.costoU ? (w.prezzo || 0) - w.costoU * w.qty : 0)
-      })),
+      venditeRighe: (st0 ? st0.vend : []).map(w => {
+        const testo = w.qty + (w.qty === 1 ? ' pezzo' : ' pezzi') + (w.data ? ' il ' + dmy(w.data) : '') + ' · ' + eur(w.prezzo || 0);
+        return {
+          testo,
+          profitto: w.costoU ? eurC((w.prezzo || 0) - w.costoU * w.qty) : 'profitto n.d.',
+          style: pill(w.costoU ? (w.prezzo || 0) - w.costoU * w.qty : 0),
+          eliminaH: H(() => setState({ chiedi: { tipo: 'vendita', pid: openP.id, vid: w.id, nome: openP.nome, meta: testo } }))
+        };
+      }),
       haVendite: !!(st0 && st0.vend.length),
       venditeTitolo: st0 && st0.vend.length
         ? 'Vendite registrate — incassato ' + eur(st0.incasso)
           + (st0.profitto !== null && st0.costoVend ? ' su una spesa di ' + eur(st0.costoVend) + ', profitto ' + eurC(st0.profitto) + ' (' + pct(st0.profitto / st0.costoVend * 100) + ')' : '')
         : '',
-      eliminaProdottoH: H(() => setState({ chiedi: { pid: openP.id, nome: openP.nome, n: tutti.length, valore: st0 ? st0.valore : 0 } })),
+      eliminaProdottoH: H(() => setState({ chiedi: { tipo: 'prodotto', pid: openP.id, nome: openP.nome, n: tutti.length, valore: st0 ? st0.valore : 0 } })),
       ranges: RANGES.map(r => ({ label: r[0], style: chipS(s.range === r[0]), selH: H(() => setState({ range: r[0], tip: null })) }))
     };
   }
@@ -1010,7 +1035,14 @@ function computeVals() {
       apriH: H(() => setState({ open: x.p.id, espanse: {}, edit: null, range: 'Tutto', tip: null }))
     })),
 
-    conferma: s.chiedi ? {
+    conferma: s.chiedi ? (s.chiedi.tipo === 'vendita' ? {
+      titolo: 'Eliminare questa vendita?',
+      testo: 'La vendita verrà rimossa dallo storico e i pezzi torneranno disponibili in collezione. L’operazione non è reversibile.',
+      nome: s.chiedi.nome,
+      meta: s.chiedi.meta,
+      annullaH: H(() => setState({ chiedi: null })),
+      eseguiH: H(() => eliminaVendita(s.chiedi.pid, s.chiedi.vid))
+    } : {
       titolo: 'Eliminare questo prodotto?',
       testo: 'Verranno rimossi il prodotto e tutto il suo storico di rilevamenti. L’operazione non è reversibile.',
       nome: s.chiedi.nome,
@@ -1021,7 +1053,7 @@ function computeVals() {
         setD({ prodotti: s.d.prodotti.filter(p => p.id !== pid), ril: s.d.ril.filter(r => r.pid !== pid) });
         setState({ chiedi: null, open: null, edit: null, espanse: {} });
       })
-    } : null,
+    }) : null,
 
     formRil: s.nuovoRil && openP ? (() => {
       const e = s.nuovoRil, pv2 = parseValori(e.valori), nn = pv2.nums;
@@ -1705,7 +1737,7 @@ function renderDettaglio(V) {
   if (!V.dettaglio) return '';
   const d = V.dettaglio;
   let html = `
-  <div style="position:fixed;inset:0;z-index:60;background:rgba(22,24,28,0.42);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto" data-h="${V.chiudiH}">
+  <div id="dettaglioScroll" style="position:fixed;inset:0;z-index:60;background:rgba(22,24,28,0.42);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto" data-h="${V.chiudiH}">
     <div style="width:min(940px,100%);margin:auto;background:#eceef2;border-radius:24px;padding:16px;box-shadow:0 24px 60px rgba(20,24,32,0.3);display:flex;flex-direction:column;gap:14px" data-h="${V.stopH}">
 
       <div class="pk-card" style="padding:16px;display:flex;gap:14px;align-items:flex-start">
@@ -1786,6 +1818,7 @@ function renderDettaglio(V) {
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid #e6e9ee;padding-top:8px">
           <span class="num" style="font-size:13px;font-weight:600;color:#40474f;margin-right:auto">${esc(w.testo)}</span>
           <span class="num" style="${styleAttr(w.style)}">${esc(w.profitto)}</span>
+          <button type="button" class="pk-btn" style="padding:6px 11px;font-size:12px;color:#dc2626" title="Elimina questa vendita" data-h="${w.eliminaH}">Elimina</button>
         </div>`).join('')}
       </div>`;
   }
@@ -1952,7 +1985,25 @@ function render() {
     try { start = active.selectionStart; end = active.selectionEnd; } catch (e) {}
     focusInfo = { field: active.getAttribute('data-field'), start, end };
   }
+
+  // preserve scroll position across the full re-render: replacing innerHTML recreates every
+  // node from scratch, so any scrollable container (the detail modal, in particular — it can be
+  // re-rendered mid-scroll by a chart hover event firing as content shifts under the cursor)
+  // resets its scrollTop to 0 unless we restore it by hand.
+  const scrollIds = ['dettaglioScroll'];
+  const scrollInfo = {};
+  scrollIds.forEach(id => { const el = document.getElementById(id); if (el) scrollInfo[id] = el.scrollTop; });
+  const winScroll = window.scrollY;
+
   appEl.innerHTML = full;
+
+  scrollIds.forEach(id => {
+    if (scrollInfo[id] === undefined) return;
+    const el = document.getElementById(id);
+    if (el) el.scrollTop = scrollInfo[id];
+  });
+  window.scrollTo(window.scrollX, winScroll);
+
   if (focusInfo) {
     let sel = null;
     try { sel = appEl.querySelector('[data-field="' + focusInfo.field.replace(/"/g, '\\"') + '"]'); } catch (e) { sel = null; }
